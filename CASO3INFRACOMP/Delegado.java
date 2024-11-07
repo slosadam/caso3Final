@@ -8,6 +8,7 @@ import java.security.InvalidKeyException;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.util.Base64;
+import java.util.Map;
 
 import javax.crypto.Cipher;
 import javax.crypto.interfaces.DHPrivateKey;
@@ -36,13 +37,12 @@ import java.util.Arrays;
 public class Delegado implements Runnable {
 
     private Socket clientSocket;
-    private Key llave_1;
-    private Key llave_2;
+    private Map<Integer, String> tabla_paquetes;
 
-    public Delegado(Socket socket) {
+    public Delegado(Socket socket,  Map<Integer, String> tabla_paquetes) {
         this.clientSocket = socket;
-        this.llave_1 = new SecretKeySpec(new byte[1024], "AES");
-        this.llave_2 = new SecretKeySpec(new byte[1024], "HmacSHA384");
+        this.tabla_paquetes = tabla_paquetes;
+;
     }
 
     @Override
@@ -67,7 +67,7 @@ public class Delegado implements Runnable {
 
     }
 
-    public boolean verificarYProcesarDatos(byte[] encryptedUID, byte[] uidHmac, byte[] encryptedPackageId, 
+    public String verificarYProcesarDatos(byte[] encryptedUID, byte[] uidHmac, byte[] encryptedPackageId, 
                                            byte[] packageIdHmac, byte[] iv, SecretKey hmacKey, SecretKey symmetricKey) throws Exception {
         // Verificar HMAC de UID
         Mac hmacSha384 = Mac.getInstance("HmacSHA384");
@@ -81,14 +81,14 @@ public class Delegado implements Runnable {
 
         if (!Arrays.equals(computedUidHmac, uidHmac)) {
         System.out.println("HMAC de UID no coincide. Mensaje posiblemente alterado.");
-        return false;
+        return "0";
         }
 
         // Computar y verificar HMAC de package_id
         byte[] computedPackageIdHmac = hmacSha384.doFinal(encryptedPackageId);
         if (!Arrays.equals(computedPackageIdHmac, packageIdHmac)) {
             System.out.println("HMAC de package_id no coincide. Mensaje posiblemente alterado.");
-            return false;
+            return "0";
         }
         System.out.println("PASEEE :)");
 
@@ -114,10 +114,8 @@ public class Delegado implements Runnable {
     }
 
     // Simulación de la consulta al estado del paquete (dummy function)
-    private boolean verificarEstadoPaquete(String uid, String packageId) {
-        System.out.println("Consultando estado del paquete con UID: " + uid + " y Package ID: " + packageId);
-      
-        return true; // Para simplificar
+    private String verificarEstadoPaquete(String uid, String packageId) {
+        return tabla_paquetes.get(Integer.parseInt(packageId)); // Para simplificar
     }
 
     private void enviarEstadoEncriptado(String estado, PrintWriter escritor, byte[] iv, SecretKey symmetricKey, SecretKey hmacKey) throws Exception {
@@ -248,9 +246,11 @@ public class Delegado implements Runnable {
 
                         byte[] packageIdHmac = Base64.getDecoder().decode(packageIdHmacBase64);
 
-                        if (verificarYProcesarDatos(encryptedUID, uidHmac, encryptedPackageId, packageIdHmac, iv, hmacKey, symmetricKey)) {
+                        String respuestaVerificarProcesar = verificarYProcesarDatos(encryptedUID, uidHmac, encryptedPackageId, packageIdHmac, iv, hmacKey, symmetricKey);
+
+                        if (respuestaVerificarProcesar != "0") {
                         // Obtener estado del paquete y enviarlo al cliente encriptado
-                        String estadoPaquete = "Procesado correctamente"; // Ejemplo de estado
+                        String estadoPaquete = respuestaVerificarProcesar; // Ejemplo de estado
                         enviarEstadoEncriptado(estadoPaquete, escritor, iv, symmetricKey, hmacKey);
                         } else {
                         escritor.println("Error: HMAC no coincide o fallo de desencriptación.");

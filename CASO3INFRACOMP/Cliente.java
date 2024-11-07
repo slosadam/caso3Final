@@ -116,7 +116,7 @@ public class Cliente {
                 System.out.println("-------------");
 
 
-                int package_id = random.nextInt(100);
+                int package_id = random.nextInt(32);
 
                 System.out.println("el package_id es:");
                 System.out.println(package_id);
